@@ -1,0 +1,47 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  STORAGE_ACCOUNT: hipnosisweb12345   # 🔴 CHANGE THIS
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: >
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: infra
+
+      - name: Upload Website
+        run: |
+          az storage blob upload-batch \
+            --account-name $STORAGE_ACCOUNT \
+            --destination '$web' \
+            --source ./app \
+            --overwrite
